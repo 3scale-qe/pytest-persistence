@@ -1,7 +1,11 @@
 import pickle
+import sys
 
-TMP = {}
-DATA = {}
+from _pytest.fixtures import resolve_fixture_function, call_fixture_func
+from _pytest.outcomes import TEST_OUTCOME
+
+OUTPUT = {}
+INPUT = {}
 
 
 def pytest_addoption(parser):
@@ -14,14 +18,14 @@ def pytest_addoption(parser):
 def pytest_sessionstart(session):
     if file := session.config.getoption("--load"):
         with open(file, 'rb') as f:
-            global DATA
-            DATA = pickle.load(f)
+            global INPUT
+            INPUT = pickle.load(f)
 
 
 def pytest_sessionfinish(session):
     if file := session.config.getoption("--store"):
         with open(file, 'wb') as outfile:
-            pickle.dump(TMP, outfile)
+            pickle.dump(OUTPUT, outfile)
 
 
 def pytest_fixture_setup(fixturedef, request):
@@ -31,7 +35,7 @@ def pytest_fixture_setup(fixturedef, request):
     test_name = request._pyfuncitem.name
 
     if request.config.getoption("--load"):
-        if fixturevalue := DATA.get(file_name).get(test_name).get(fixturedef.argname):
+        if fixturevalue := INPUT.get(file_name).get(test_name).get(fixturedef.argname):
             fixturedef.cached_result = (fixturevalue, my_cache_key, None)
             return fixturevalue
 
@@ -42,21 +46,26 @@ def pytest_fixture_setup(fixturedef, request):
         request._check_scope(argname, request.scope, fixdef.scope)
         kwargs[argname] = result
 
-    if kwargs:
-        result = fixturedef.func(**kwargs)
-    else:
-        result = fixturedef.func()
+    fixturefunc = resolve_fixture_function(fixturedef, request)
+    my_cache_key = fixturedef.cache_key(request)
+    try:
+        result = call_fixture_func(fixturefunc, request, kwargs)
+    except TEST_OUTCOME:
+        exc_info = sys.exc_info()
+        assert exc_info[0] is not None
+        fixturedef.cached_result = (None, my_cache_key, exc_info)
+        raise
 
     if request.config.getoption("--store"):
         try:
             pickle.dumps(result)
-            if TMP.get(file_name):
-                if TMP[file_name].get(test_name):
-                    TMP[file_name][test_name].update({fixturedef.argname: result})
+            if OUTPUT.get(file_name):
+                if OUTPUT[file_name].get(test_name):
+                    OUTPUT[file_name][test_name].update({fixturedef.argname: result})
                 else:
-                    TMP[file_name].update({test_name: {fixturedef.argname: result}})
+                    OUTPUT[file_name].update({test_name: {fixturedef.argname: result}})
             else:
-                TMP.update({file_name: {test_name: {fixturedef.argname: result}}})
+                OUTPUT.update({file_name: {test_name: {fixturedef.argname: result}}})
         except:
             pass
 

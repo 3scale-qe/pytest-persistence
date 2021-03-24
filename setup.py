@@ -6,6 +6,12 @@ from pytest_persistence import __version__
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+extra_requirements = {
+    'dev': [
+        'pytest'
+    ]
+}
+
 setup(name="pytest-persistence",
       version=__version__,
       description="Pytest tool for persistent objects",
