@@ -66,7 +66,7 @@ def pytest_fixture_setup(fixturedef, request):
                     OUTPUT[file_name].update({test_name: {fixturedef.argname: result}})
             else:
                 OUTPUT.update({file_name: {test_name: {fixturedef.argname: result}}})
-        except pickle.PicklingError:
+        except:
             pass
 
     return result
