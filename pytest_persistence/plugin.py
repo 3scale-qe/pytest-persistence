@@ -1,14 +1,15 @@
 import pickle
-import sys
 
-from _pytest.fixtures import resolve_fixture_function, call_fixture_func
-from _pytest.outcomes import TEST_OUTCOME
+from _pytest.fixtures import pytest_fixture_setup as fixture_result
 
 OUTPUT = {}
 INPUT = {}
 
 
 def pytest_addoption(parser):
+    """
+    Add option to store/load fixture results into file
+    """
     parser.addoption(
         "--store", action="store", default=False, help="Store config")
     parser.addoption(
@@ -16,6 +17,11 @@ def pytest_addoption(parser):
 
 
 def pytest_sessionstart(session):
+    """
+    Called after the ``Session`` object has been created and before performing collection
+    and entering the run test loop. Checks whether '--load' switch is present. If it is, load
+    fixtures results from given file.
+    """
     if file := session.config.getoption("--load"):
         with open(file, 'rb') as f:
             global INPUT
@@ -23,38 +29,32 @@ def pytest_sessionstart(session):
 
 
 def pytest_sessionfinish(session):
+    """
+    Called after whole test run finished, right before returning the exit status to the system.
+    Checks whether '--store' switch is present. If it is, store fixtures results to given file.
+    """
     if file := session.config.getoption("--store"):
         with open(file, 'wb') as outfile:
             pickle.dump(OUTPUT, outfile)
 
 
 def pytest_fixture_setup(fixturedef, request):
-    kwargs = {}
+    """
+    Perform fixture setup execution.
+    If '--load' switch is present, tries to find fixture results in stored results.
+    If '--store' switch is present, store fixture result.
+    :returns: The return value of the fixture function.
+    """
     my_cache_key = fixturedef.cache_key(request)
     file_name = request._pyfuncitem.location[0]
     test_name = request._pyfuncitem.name
 
     if request.config.getoption("--load"):
-        if fixturevalue := INPUT.get(file_name).get(test_name).get(fixturedef.argname):
-            fixturedef.cached_result = (fixturevalue, my_cache_key, None)
-            return fixturevalue
+        if result := INPUT.get(file_name).get(test_name).get(fixturedef.argname):
+            fixturedef.cached_result = (result, my_cache_key, None)
+            return result
 
-    for argname in fixturedef.argnames:
-        fixdef = request._get_active_fixturedef(argname)
-        assert fixdef.cached_result is not None
-        result, arg_cache_key, exc = fixdef.cached_result
-        request._check_scope(argname, request.scope, fixdef.scope)
-        kwargs[argname] = result
-
-    fixturefunc = resolve_fixture_function(fixturedef, request)
-    my_cache_key = fixturedef.cache_key(request)
-    try:
-        result = call_fixture_func(fixturefunc, request, kwargs)
-    except TEST_OUTCOME:
-        exc_info = sys.exc_info()
-        assert exc_info[0] is not None
-        fixturedef.cached_result = (None, my_cache_key, exc_info)
-        raise
+    result = fixture_result(fixturedef, request)
 
     if request.config.getoption("--store"):
         try:
@@ -66,8 +66,7 @@ def pytest_fixture_setup(fixturedef, request):
                     OUTPUT[file_name].update({test_name: {fixturedef.argname: result}})
             else:
                 OUTPUT.update({file_name: {test_name: {fixturedef.argname: result}}})
-        except:
+        except pickle.PicklingError:
             pass
 
-    fixturedef.cached_result = (result, my_cache_key, None)
     return result

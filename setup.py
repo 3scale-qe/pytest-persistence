@@ -28,5 +28,6 @@ setup(name="pytest-persistence",
           "Programming Language :: Python :: 3",
           "Programming Language :: Python :: 3.7",
           "Operating System :: OS Independent",
+          "License :: OSI Approved :: MIT License",
       ],
       )

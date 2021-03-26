@@ -17,5 +17,3 @@ To store fixtures to file run tests with `--store {file_path}`:
 To load fixtures from file run tests with `--load {file_path}`:
 
     python -m pytest --load {file_path}
-
-## Licence
