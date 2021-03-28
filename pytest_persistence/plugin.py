@@ -2,7 +2,7 @@ import pickle
 
 from _pytest.fixtures import pytest_fixture_setup as fixture_result
 
-OUTPUT = {}
+OUTPUT = {"session": {}, "package": {}, "module": {}, "class": {}, "function": {}}
 INPUT = {}
 
 
@@ -46,26 +46,40 @@ def pytest_fixture_setup(fixturedef, request):
     :returns: The return value of the fixture function.
     """
     my_cache_key = fixturedef.cache_key(request)
+    fixture_name = fixturedef.argname
+    scope = fixturedef.scope
     file_name = request._pyfuncitem.location[0]
-    test_name = request._pyfuncitem.name
+    if scope == "package":
+        scope_file = file_name.rsplit("/", 1)[0]
+    elif scope == "module":
+        scope_file = file_name.rsplit("/", 1)[1]
+    elif scope == "class":
+        scope_file = request._pyfuncitem.cls
+    elif scope == "function":
+        scope_file = f"{file_name}:{request._pyfuncitem.name}"
 
     if request.config.getoption("--load"):
-        if result := INPUT.get(file_name).get(test_name).get(fixturedef.argname):
-            fixturedef.cached_result = (result, my_cache_key, None)
-            return result
+        if scope == "session":
+            if result := INPUT[scope].get(fixture_name):
+                fixturedef.cached_result = (result, my_cache_key, None)
+                return result
+        else:
+            if result := INPUT[scope].get(scope_file).get(fixture_name):
+                fixturedef.cached_result = (result, my_cache_key, None)
+                return result
 
     result = fixture_result(fixturedef, request)
 
     if request.config.getoption("--store"):
         try:
             pickle.dumps(result)
-            if OUTPUT.get(file_name):
-                if OUTPUT[file_name].get(test_name):
-                    OUTPUT[file_name][test_name].update({fixturedef.argname: result})
-                else:
-                    OUTPUT[file_name].update({test_name: {fixturedef.argname: result}})
+            if scope == "session":
+                OUTPUT[scope].update({fixture_name: result})
             else:
-                OUTPUT.update({file_name: {test_name: {fixturedef.argname: result}}})
+                if OUTPUT[scope].get(scope_file):
+                    OUTPUT[scope][scope_file].update({fixture_name: result})
+                else:
+                    OUTPUT[scope].update({scope_file: {fixture_name: result}})
         except:
             pass
 
