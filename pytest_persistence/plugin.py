@@ -1,3 +1,4 @@
+import os
 import pickle
 
 from _pytest.fixtures import pytest_fixture_setup as fixture_result
@@ -22,6 +23,9 @@ def pytest_sessionstart(session):
     and entering the run test loop. Checks whether '--load' switch is present. If it is, load
     fixtures results from given file.
     """
+    if file := session.config.getoption("--store"):
+        if os.path.isfile(file):
+            raise FileExistsError("This file already exists")
     if file := session.config.getoption("--load"):
         with open(file, 'rb') as f:
             global INPUT
@@ -38,6 +42,45 @@ def pytest_sessionfinish(session):
             pickle.dump(OUTPUT, outfile)
 
 
+def set_scope_file(scope, file_name, request):
+    """
+    Return file_name based on scope of fixture
+    """
+    if scope == "package":
+        return file_name.rsplit("/", 1)[0]
+    elif scope == "module":
+        return file_name.rsplit("/", 1)[1]
+    elif scope == "class":
+        return request._pyfuncitem.cls
+    elif scope == "function":
+        return f"{file_name}:{request._pyfuncitem.name}"
+
+
+def load_fixture(scope, fixture_name, scope_file):
+    """
+    Load fixture result
+    """
+    if scope == "session":
+        if result := INPUT[scope].get(fixture_name):
+            return result
+    else:
+        if result := INPUT[scope].get(scope_file).get(fixture_name):
+            return result
+
+
+def store_fixture(result, scope, fixture_name, scope_file):
+    """
+    Store fixture result
+    """
+    if scope == "session":
+        OUTPUT[scope].update({fixture_name: result})
+    else:
+        if OUTPUT[scope].get(scope_file):
+            OUTPUT[scope][scope_file].update({fixture_name: result})
+        else:
+            OUTPUT[scope].update({scope_file: {fixture_name: result}})
+
+
 def pytest_fixture_setup(fixturedef, request):
     """
     Perform fixture setup execution.
@@ -49,38 +92,19 @@ def pytest_fixture_setup(fixturedef, request):
     fixture_name = fixturedef.argname
     scope = fixturedef.scope
     file_name = request._pyfuncitem.location[0]
-    if scope == "package":
-        scope_file = file_name.rsplit("/", 1)[0]
-    elif scope == "module":
-        scope_file = file_name.rsplit("/", 1)[1]
-    elif scope == "class":
-        scope_file = request._pyfuncitem.cls
-    elif scope == "function":
-        scope_file = f"{file_name}:{request._pyfuncitem.name}"
+    scope_file = set_scope_file(scope, file_name, request)
 
     if request.config.getoption("--load"):
-        if scope == "session":
-            if result := INPUT[scope].get(fixture_name):
-                fixturedef.cached_result = (result, my_cache_key, None)
-                return result
-        else:
-            if result := INPUT[scope].get(scope_file).get(fixture_name):
-                fixturedef.cached_result = (result, my_cache_key, None)
-                return result
-
+        result = load_fixture(scope, fixture_name, scope_file)
+        fixturedef.cached_result = (result, my_cache_key, None)
+        return result
     result = fixture_result(fixturedef, request)
 
     if request.config.getoption("--store"):
         try:
             pickle.dumps(result)
-            if scope == "session":
-                OUTPUT[scope].update({fixture_name: result})
-            else:
-                if OUTPUT[scope].get(scope_file):
-                    OUTPUT[scope][scope_file].update({fixture_name: result})
-                else:
-                    OUTPUT[scope].update({scope_file: {fixture_name: result}})
-        except:
+            store_fixture(result, scope, fixture_name, scope_file)
+        except Exception:
             pass
 
     return result
