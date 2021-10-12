@@ -107,7 +107,7 @@ def pytest_fixture_setup(fixturedef, request):
         try:
             pickle.dumps(result)
             store_fixture(result, scope, fixture_name, scope_file)
-        except AttributeError:
+        except Exception:
             global UNABLE_TO_PICKLE
             UNABLE_TO_PICKLE.add(fixture_name)
 
