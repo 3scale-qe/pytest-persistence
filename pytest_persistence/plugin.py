@@ -6,6 +6,7 @@ from _pytest.fixtures import pytest_fixture_setup as fixture_result
 OUTPUT = {"session": {}, "package": {}, "module": {}, "class": {}, "function": {}}
 INPUT = {}
 UNABLE_TO_PICKLE = set()
+PICKLED_FIXTURES = set()
 
 
 def pytest_addoption(parser):
@@ -41,6 +42,8 @@ def pytest_sessionfinish(session):
     if file := session.config.getoption("--store"):
         with open(file, 'wb') as outfile:
             pickle.dump(OUTPUT, outfile)
+    if PICKLED_FIXTURES:
+        print(f"\nThese fixtures was stored: {PICKLED_FIXTURES}\n")
     if UNABLE_TO_PICKLE:
         print(f"\nThese fixtures couldn't be stored: {UNABLE_TO_PICKLE}\n")
 
@@ -99,13 +102,15 @@ def pytest_fixture_setup(fixturedef, request):
 
     if request.config.getoption("--load"):
         result = load_fixture(scope, fixture_name, scope_file)
-        fixturedef.cached_result = (result, my_cache_key, None)
-        return result
+        if result:
+            fixturedef.cached_result = (result, my_cache_key, None)
+            return result
     result = fixture_result(fixturedef, request)
 
     if request.config.getoption("--store"):
         try:
             pickle.dumps(result)
+            PICKLED_FIXTURES.add(fixture_name)
             store_fixture(result, scope, fixture_name, scope_file)
         except Exception:
             global UNABLE_TO_PICKLE
