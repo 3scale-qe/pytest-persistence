@@ -17,7 +17,8 @@ def test_store():
                         'function': {'tests/test_mock.py:test1': {'fixture1': 42}}}
 
 
-def test_store_and_load():
+def test_store_and_load(request):
+    request.addfinalizer(lambda: os.remove('stored_tests'))
     os.system("pytest --store stored_tests test_mock.py")
     stream = os.popen('ls').read()
     assert "stored_tests" in stream.split('\n')
@@ -26,10 +27,9 @@ def test_store_and_load():
     assert "test_mock.py ." in stream
     assert "1 passed" in stream
 
-    os.remove('stored_tests')
 
-
-def test_store_error():
+def test_store_error(request):
+    request.addfinalizer(lambda: os.remove('stored_tests'))
     stream = str(subprocess.Popen("pytest --store", shell=True, stderr=subprocess.PIPE).stderr.read())
     assert "pytest: error: argument --store: expected one argument" in stream
 
@@ -40,8 +40,6 @@ def test_store_error():
     stream = str(
         subprocess.Popen("pytest --store stored_tests test_mock.py", shell=True, stdout=subprocess.PIPE).stdout.read())
     assert "FileExistsError: This file already exists" in stream
-
-    os.remove('stored_tests')
 
 
 def test_load_error():
