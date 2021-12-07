@@ -45,9 +45,9 @@ class Plugin:
             with open(file, 'wb') as outfile:
                 pickle.dump(self.output, outfile)
         if self.pickled_fixtures:
-            print(f"\nThese fixtures was stored: {self.pickled_fixtures}\n")
+            print(f"\nStored fixtures: {self.pickled_fixtures}")
         if self.unable_to_pickle:
-            print(f"\nThese fixtures couldn't be stored: {self.unable_to_pickle}\n")
+            print(f"\nUnstored fixtures: {self.unable_to_pickle}")
 
     def set_scope_file(self, scope, file_name, request):
         """
@@ -117,5 +117,8 @@ class Plugin:
 
 
 def pytest_configure(config):
+    """
+    Hook ensures that plugin works only when the --load or --store option is present.
+    """
     if config.getoption("--load") or config.getoption("--store"):
         config.pluginmanager.register(Plugin())
