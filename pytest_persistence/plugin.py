@@ -30,11 +30,13 @@ class Plugin:
         and entering the run test loop. Checks whether '--load' switch is present. If it is, load
         fixtures results from given file.
         """
-        if file := session.config.getoption("--store"):
-            if os.path.isfile(file):
+        dest = session.config.getoption("--store")
+        if dest is not None:
+            if os.path.isfile(dest):
                 raise FileExistsError("This file already exists")
-        if file := session.config.getoption("--load"):
-            with open(file, 'rb') as f:
+        src = session.config.getoption("--load")
+        if src is not None:
+            with open(src, 'rb') as f:
                 self.input = pickle.load(f)
 
     def check_output(self):
@@ -64,7 +66,8 @@ class Plugin:
         Called after whole test run finished, right before returning the exit status to the system.
         Checks whether '--store' switch is present. If it is, store fixtures results to given file.
         """
-        if file := session.config.getoption("--store"):
+        file = session.config.getoption("--store")
+        if file is not None:
             with open(file, 'wb') as outfile:
                 self.check_output()
                 pickle.dump(self.output, outfile)
@@ -78,10 +81,12 @@ class Plugin:
         Load fixture result
         """
         if scope == "session":
-            if result := self.input[scope].get(fixture_id):
+            result = self.input[scope].get(fixture_id)
+            if result is not None:
                 return result
         else:
-            if result := self.input[scope].get(node_id).get(fixture_id):
+            result = self.input[scope].get(node_id).get(fixture_id)
+            if result is not None:
                 return result
 
     def store_fixture(self, result, scope, fixture_id, node_id):
