@@ -31,12 +31,3 @@ def test_load_fixture(store_fixtures):
     result = store_fixtures[1]
     fixture_result = plg.load_fixture(scope, "test_fixture", "file")
     assert fixture_result == result
-
-
-@pytest.mark.parametrize(("scope", "result"), [("package", "tests"), ("module", "test_unit.py"), ("class", None),
-                                               ("function", "tests/test_unit.py:test_set_scope_file[function]")],
-                         ids=["package", "module", "class", "function"])
-def test_set_scope_file(scope, result, request):
-    file = request._pyfuncitem.location[0]
-    scope_file = plg.set_scope_file(scope, file, request)
-    assert scope_file == result

@@ -13,8 +13,9 @@ def test_store():
     os.system("pytest --store stored_tests test_mock.py")
     with open("stored_tests", 'rb') as f:
         data = pickle.load(f)
-        assert data == {'session': {}, 'package': {}, 'module': {}, 'class': {},
-                        'function': {'tests/test_mock.py:test1': {'fixture1': 42}}}
+        assert data == {'session': {}, 'package': {}, 'module': {}, 'class': {}, 'function': {
+            'tests/test_mock.py::test1': {
+                "<FixtureDef argname='fixture1' scope='function' baseid='tests/test_mock.py'>": 42}}}
 
 
 def test_store_and_load(request):
