@@ -36,6 +36,28 @@ class Plugin:
             with open(file, 'rb') as f:
                 self.input = pickle.load(f)
 
+    def check_output(self):
+
+        def check_fixtures(fixtures):
+            to_remove = []
+            for k, v in fixtures.items():
+                try:
+                    pickle.dumps(v)
+                except Exception:
+                    to_remove.append(k)
+            for fixture in to_remove:
+                fixtures.pop(fixture)
+                if fixture in self.pickled_fixtures:
+                    self.pickled_fixtures.remove(fixture)
+                    self.unable_to_pickle.add(fixture)
+
+        for scope, fixtures in self.output.items():
+            if scope == "session":
+                check_fixtures(fixtures)
+            else:
+                for key, value in fixtures.items():
+                    check_fixtures(value)
+
     def pytest_sessionfinish(self, session):
         """
         Called after whole test run finished, right before returning the exit status to the system.
@@ -43,47 +65,35 @@ class Plugin:
         """
         if file := session.config.getoption("--store"):
             with open(file, 'wb') as outfile:
+                self.check_output()
                 pickle.dump(self.output, outfile)
         if self.pickled_fixtures:
             print(f"\nStored fixtures: {self.pickled_fixtures}")
         if self.unable_to_pickle:
             print(f"\nUnstored fixtures: {self.unable_to_pickle}")
 
-    def set_scope_file(self, scope, file_name, request):
-        """
-        Return file_name based on scope of fixture
-        """
-        if scope == "package":
-            return file_name.rsplit("/", 1)[0]
-        elif scope == "module":
-            return file_name.rsplit("/", 1)[1]
-        elif scope == "class":
-            return request._pyfuncitem.cls
-        elif scope == "function":
-            return f"{file_name}:{request._pyfuncitem.name}"
-
-    def load_fixture(self, scope, fixture_name, scope_file):
+    def load_fixture(self, scope, fixture_id, node_id):
         """
         Load fixture result
         """
         if scope == "session":
-            if result := self.input[scope].get(fixture_name):
+            if result := self.input[scope].get(fixture_id):
                 return result
         else:
-            if result := self.input[scope].get(scope_file).get(fixture_name):
+            if result := self.input[scope].get(node_id).get(fixture_id):
                 return result
 
-    def store_fixture(self, result, scope, fixture_name, scope_file):
+    def store_fixture(self, result, scope, fixture_id, node_id):
         """
         Store fixture result
         """
         if scope == "session":
-            self.output[scope].update({fixture_name: result})
+            self.output[scope].update({fixture_id: result})
         else:
-            if self.output[scope].get(scope_file):
-                self.output[scope][scope_file].update({fixture_name: result})
+            if self.output[scope].get(node_id):
+                self.output[scope][node_id].update({fixture_id: result})
             else:
-                self.output[scope].update({scope_file: {fixture_name: result}})
+                self.output[scope].update({node_id: {fixture_id: result}})
 
     def pytest_fixture_setup(self, fixturedef, request):
         """
@@ -93,13 +103,12 @@ class Plugin:
         :returns: The return value of the fixture function.
         """
         my_cache_key = fixturedef.cache_key(request)
-        fixture_name = fixturedef.argname
+        fixture_id = str(fixturedef)
         scope = fixturedef.scope
-        file_name = request._pyfuncitem.location[0]
-        scope_file = self.set_scope_file(scope, file_name, request)
+        node_id = request._pyfuncitem._nodeid
 
         if request.config.getoption("--load"):
-            result = self.load_fixture(scope, fixture_name, scope_file)
+            result = self.load_fixture(scope, fixture_id, node_id)
             if result:
                 fixturedef.cached_result = (result, my_cache_key, None)
                 return result
@@ -108,10 +117,10 @@ class Plugin:
         if request.config.getoption("--store"):
             try:
                 pickle.dumps(result)
-                self.pickled_fixtures.add(fixture_name)
-                self.store_fixture(result, scope, fixture_name, scope_file)
+                self.pickled_fixtures.add(fixture_id)
+                self.store_fixture(result, scope, fixture_id, node_id)
             except Exception:
-                self.unable_to_pickle.add(fixture_name)
+                self.unable_to_pickle.add(fixture_id)
 
         return result
 
