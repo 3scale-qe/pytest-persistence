@@ -1,5 +1,6 @@
 import os
 import pickle
+from pprint import pformat
 
 from _pytest.fixtures import pytest_fixture_setup as fixture_result
 
@@ -68,9 +69,9 @@ class Plugin:
                 self.check_output()
                 pickle.dump(self.output, outfile)
         if self.pickled_fixtures:
-            print(f"\nStored fixtures: {self.pickled_fixtures}")
+            print(f"\nStored fixtures:\n{pformat(self.pickled_fixtures)}")
         if self.unable_to_pickle:
-            print(f"\nUnstored fixtures: {self.unable_to_pickle}")
+            print(f"\nUnstored fixtures:\n{pformat(self.unable_to_pickle)}")
 
     def load_fixture(self, scope, fixture_id, node_id):
         """
