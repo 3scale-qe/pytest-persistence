@@ -27,7 +27,7 @@ class Plugin:
     def pytest_sessionstart(self, session):
         """
         Called after the ``Session`` object has been created and before performing collection
-        and entering the run test loop. Checks whether '--load' switch is present. If it is, load
+        and entering the run test loop. Checks whether '--load' option is present. If it is, load
         fixtures results from given file.
         """
         if file := session.config.getoption("--store"):
@@ -38,6 +38,7 @@ class Plugin:
                 self.input = pickle.load(f)
 
     def check_output(self):
+        """Check if output dict can be serialized"""
 
         def check_fixtures(fixtures):
             to_remove = []
@@ -59,18 +60,34 @@ class Plugin:
                 for key, value in fixtures.items():
                     check_fixtures(value)
 
+    def output_to_file(self, filename):
+        """Serialize output dict into file"""
+        with open(filename, 'wb') as outfile:
+            self.check_output()
+            pickle.dump(self.output, outfile)
+
+    def merge_dicts(self, fixtures):
+        for k, v in fixtures.items():
+            self.output[k].update(v)
+
     def pytest_sessionfinish(self, session):
         """
         Called after whole test run finished, right before returning the exit status to the system.
-        Checks whether '--store' switch is present. If it is, store fixtures results to given file.
+        Checks whether '--store' option is present. If it is, store fixtures results to given file.
         """
         if file := session.config.getoption("--store"):
-            with open(file, 'wb') as outfile:
-                self.check_output()
-                pickle.dump(self.output, outfile)
-        if self.pickled_fixtures:
+            if worker := os.getenv("PYTEST_XDIST_WORKER"):
+                self.output_to_file(f"{file}_{worker}")
+                print(f"\nStored fixtures:\n{pformat(self.pickled_fixtures)}")
+                print(f"\nUnstored fixtures:\n{pformat(self.unable_to_pickle)}")
+                return
+            if workers := session.config.getoption("-n"):
+                for i in range(workers):
+                    with open(f"{file}_gw{i}", 'rb') as f:
+                        self.merge_dicts(pickle.load(f))
+                        os.remove(f"{file}_gw{i}")
+            self.output_to_file(file)
             print(f"\nStored fixtures:\n{pformat(self.pickled_fixtures)}")
-        if self.unable_to_pickle:
             print(f"\nUnstored fixtures:\n{pformat(self.unable_to_pickle)}")
 
     def load_fixture(self, scope, fixture_id, node_id):
