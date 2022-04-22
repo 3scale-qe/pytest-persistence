@@ -98,7 +98,7 @@ class Plugin:
             if result := self.input[scope].get(fixture_id):
                 return result
         else:
-            if result := self.input[scope].get(node_id).get(fixture_id):
+            if result := self.input[scope].get(node_id, {}).get(fixture_id):
                 return result
 
     def store_fixture(self, result, scope, fixture_id, node_id):
