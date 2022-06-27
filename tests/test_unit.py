@@ -8,11 +8,13 @@ plg = plugin.Plugin()
 @pytest.mark.parametrize("scope", ["session", "package", "module", "class", "function"])
 @pytest.mark.parametrize("result", ["result", 42])
 def test_store_fixture(result, scope):
-    plg.store_fixture(result, scope, "test_fixture", "file")
+    fixture_id = ('fixture1', scope, 'tests/test_mock.py')
+    plg.store_fixture(result, fixture_id, 'tests/test_mock.py', None)
     if scope == "session":
-        assert plg.output[scope] == {"test_fixture": result}
+        assert plg.output[scope] == {"('fixture1', 'session', 'tests/test_mock.py', None)": result}
     else:
-        assert plg.output[scope]["file"] == {"test_fixture": result}
+        assert plg.output[scope]["tests/test_mock.py"] == {
+            f"('fixture1', '{scope}', 'tests/test_mock.py', None)": result}
 
 
 @pytest.fixture(params=[(x, y)
@@ -21,7 +23,8 @@ def test_store_fixture(result, scope):
 def store_fixtures(request):
     scope = request.param[0]
     result = request.param[1]
-    plg.store_fixture(result, scope, "test_fixture", "file")
+    fixture_id = ('fixture1', scope, 'tests/test_mock.py')
+    plg.store_fixture(result, fixture_id, 'tests/test_mock.py', None)
     plg.input = plg.output
     return scope, result
 
@@ -29,5 +32,6 @@ def store_fixtures(request):
 def test_load_fixture(store_fixtures):
     scope = store_fixtures[0]
     result = store_fixtures[1]
-    fixture_result = plg.load_fixture(scope, "test_fixture", "file")
+    fixture_id = ('fixture1', scope, 'tests/test_mock.py')
+    fixture_result = plg.load_fixture(fixture_id, 'tests/test_mock.py')
     assert fixture_result == result

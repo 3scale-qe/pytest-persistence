@@ -14,8 +14,8 @@ def test_store():
     with open("stored_tests", 'rb') as f:
         data = pickle.load(f)
         assert data == {'session': {}, 'package': {}, 'module': {}, 'class': {}, 'function': {
-            'tests/test_mock.py::test1': {
-                "<FixtureDef argname='fixture1' scope='function' baseid='tests/test_mock.py'>": 42}}}
+            'tests/test_mock.py::test1': {"('fixture1', 'function', 'tests/test_mock.py', None)": 42}},
+                        'workers': {'tests/test_mock.py::test1': None}}
 
 
 def test_store_and_load(request):

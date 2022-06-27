@@ -19,7 +19,7 @@ class Plugin:
     """
     Pytest persistence plugin
     """
-    output = {"session": {}, "package": {}, "module": {}, "class": {}, "function": {}}
+    output = {"session": {}, "package": {}, "module": {}, "class": {}, "function": {}, "workers": {}}
     input = {}
     unable_to_pickle = set()
     pickled_fixtures = set()
@@ -54,6 +54,8 @@ class Plugin:
                     self.unable_to_pickle.add(fixture)
 
         for scope, fixtures in self.output.items():
+            if scope == "workers":
+                return
             if scope == "session":
                 check_fixtures(fixtures)
             else:
@@ -78,22 +80,28 @@ class Plugin:
         if file := session.config.getoption("--store"):
             if worker := os.getenv("PYTEST_XDIST_WORKER"):
                 self.output_to_file(f"{file}_{worker}")
-                print(f"\nStored fixtures:\n{pformat(self.pickled_fixtures)}")
-                print(f"\nUnstored fixtures:\n{pformat(self.unable_to_pickle)}")
                 return
-            if workers := session.config.getoption("-n"):
+            try:
+                workers = session.config.getoption("-n")
+            except ValueError:
+                workers = None
+            if workers:
                 for i in range(workers):
                     with open(f"{file}_gw{i}", 'rb') as f:
                         self.merge_dicts(pickle.load(f))
                         os.remove(f"{file}_gw{i}")
             self.output_to_file(file)
-            print(f"\nStored fixtures:\n{pformat(self.pickled_fixtures)}")
-            print(f"\nUnstored fixtures:\n{pformat(self.unable_to_pickle)}")
+            if self.pickled_fixtures:
+                print(f"\nStored fixtures:\n{pformat(self.pickled_fixtures)}")
+            if self.unable_to_pickle:
+                print(f"\nUnstored fixtures:\n{pformat(self.unable_to_pickle)}")
 
-    def load_fixture(self, scope, fixture_id, node_id):
+    def load_fixture(self, fixture_id, node_id):
         """
         Load fixture result
         """
+        name, scope, baseid = fixture_id
+        fixture_id = str((name, scope, baseid, self.input["workers"].get(node_id)))
         if scope == "session":
             if result := self.input[scope].get(fixture_id):
                 return result
@@ -101,10 +109,13 @@ class Plugin:
             if result := self.input[scope].get(node_id, {}).get(fixture_id):
                 return result
 
-    def store_fixture(self, result, scope, fixture_id, node_id):
+    def store_fixture(self, result, fixture_id, node_id, worker_id):
         """
         Store fixture result
         """
+        name, scope, baseid = fixture_id
+        fixture_id = str((name, scope, baseid, worker_id))
+        self.pickled_fixtures.add(fixture_id)
         if scope == "session":
             self.output[scope].update({fixture_id: result})
         else:
@@ -121,12 +132,12 @@ class Plugin:
         :returns: The return value of the fixture function.
         """
         my_cache_key = fixturedef.cache_key(request)
-        fixture_id = str(fixturedef)
-        scope = fixturedef.scope
+        worker_id = os.getenv("PYTEST_XDIST_WORKER")
+        fixture_id = fixturedef.argname, fixturedef.scope, fixturedef.baseid
         node_id = request._pyfuncitem._nodeid
 
         if request.config.getoption("--load"):
-            result = self.load_fixture(scope, fixture_id, node_id)
+            result = self.load_fixture(fixture_id, node_id)
             if result:
                 fixturedef.cached_result = (result, my_cache_key, None)
                 return result
@@ -135,8 +146,8 @@ class Plugin:
         if request.config.getoption("--store"):
             try:
                 pickle.dumps(result)
-                self.pickled_fixtures.add(fixture_id)
-                self.store_fixture(result, scope, fixture_id, node_id)
+                self.output["workers"].update({node_id: worker_id})
+                self.store_fixture(result, fixture_id, node_id, worker_id)
             except Exception:
                 self.unable_to_pickle.add(fixture_id)
 
