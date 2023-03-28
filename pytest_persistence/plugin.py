@@ -2,7 +2,10 @@ import os
 import pickle
 from pprint import pformat
 
+import pytest
 from _pytest.fixtures import pytest_fixture_setup as fixture_result
+
+from pytest_persistence.XDistScheduling import XDistScheduling
 
 
 def pytest_addoption(parser):
@@ -152,6 +155,11 @@ class Plugin:
                 self.unable_to_pickle.add(fixture_id)
 
         return result
+
+    @pytest.hookimpl(trylast=True)
+    def pytest_xdist_make_scheduler(self, config, log):
+        if (test_order := self.input.get("workers")) is not None:
+            return XDistScheduling(config, log, test_order)
 
 
 def pytest_configure(config):
