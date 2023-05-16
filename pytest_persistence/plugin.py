@@ -22,7 +22,7 @@ class Plugin:
     """
     Pytest persistence plugin
     """
-    output = {"session": {}, "package": {}, "module": {}, "class": {}, "function": {}, "workers": {}}
+    output = {"session": {}, "package": {}, "module": {}, "class": {}, "function": {}, "workers": {}, "tests": {}}
     input = {}
     unable_to_pickle = set()
     pickled_fixtures = set()
@@ -156,9 +156,14 @@ class Plugin:
 
         return result
 
+    def pytest_runtest_setup(self, item):
+        worker_id = os.getenv("PYTEST_XDIST_WORKER")
+        node_id = item._pyfuncitem._nodeid
+        self.output["tests"].update({node_id: worker_id})
+
     @pytest.hookimpl(trylast=True)
     def pytest_xdist_make_scheduler(self, config, log):
-        if (test_order := self.input.get("workers")) is not None:
+        if (test_order := self.input.get("tests")) is not None:
             return XDistScheduling(config, log, test_order)
 
 
