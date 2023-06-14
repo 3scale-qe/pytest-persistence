@@ -166,6 +166,53 @@ class Plugin:
         if (test_order := self.input.get("tests")) is not None:
             return XDistScheduling(config, log, test_order)
 
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_runtest_teardown(self, item, nextitem):
+        """Cleanup skipping
+
+        persistence functionality requires skip of cleanup during store obviously.
+        Otherwise fixtures would be invalid during load when the fixture does
+        something externally.
+
+        There doesn't seem to be an interface access finlaizers, non-public API is
+        in use. setupstate.stack is used to access finalizers.
+
+        Structure of setupstate.stack is documented in SetupState class in pytest.
+        It's dict of tuples.
+
+        stack == {
+            Node: (
+                [*finalizers],
+                exception
+            )
+        }
+
+        Besides clearing setupstate.stack also cached_result must be cleared and I
+        forgot why. Access to fixture is possible via closure.
+        """
+        needed = nextitem.listchain() if nextitem else []
+        # public api unknown
+        # pylint: disable=protected-access
+        stack = item.session._setupstate.stack
+
+        def fixtures(finalizers):
+            """Mine fixturedefs from stack of finalizers"""
+            for fin in finalizers:
+                if not fin.__closure__:
+                    continue
+                for cell in fin.__closure__:
+                    if hasattr(cell.cell_contents, "cached_result"):
+                        yield cell.cell_contents
+
+        for k in list(stack.keys()):
+            if k not in needed:
+                indexes = []
+                for i, v in enumerate(fixtures(stack[k][0])):
+                    v.cached_result = None
+                    indexes.append(i)
+                for i in sorted(indexes, reverse=True):
+                    del stack[k][0][i]
+
 
 def pytest_configure(config):
     """
