@@ -206,12 +206,9 @@ class Plugin:
 
         for k in list(stack.keys()):
             if k not in needed:
-                indexes = []
-                for i, v in enumerate(fixtures(stack[k][0])):
-                    v.cached_result = None
-                    indexes.append(i)
-                for i in sorted(indexes, reverse=True):
-                    del stack[k][0][i]
+                for i in fixtures(stack[k][0]):
+                    i.cached_result = None
+                stack[k][0].clear()
 
 
 def pytest_configure(config):
