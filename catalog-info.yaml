@@ -1,0 +1,27 @@
+# Catalog entry for Backstage [backstage.io]
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: pytest-persistence
+  title: pytest-persistence
+  description: Pytest plugin for persistent fixtures.
+  links:
+    - title: pypi
+      url: https://pypi.org/project/pytest-persistence/
+    - title: code
+      url: https://github.com/JaurbanRH/pytest-persistence
+      icon: github
+  tags:
+    - python
+    - pytest
+    - plugin
+    - test-framework
+    - test-execution
+    - public
+  namespace: quality-community
+  annotations:
+    feedback/email-to: 'jaurban@redhat.com'
+spec:
+  type: plugin
+  owner: user:jaurban
+  lifecycle: production

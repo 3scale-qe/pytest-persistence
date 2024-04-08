@@ -1,6 +1,6 @@
 # pytest-persistence
 
-Pytest tool for persistent objects
+Pytest plugin for persistent fixtures.
 
 ## Installation
 
