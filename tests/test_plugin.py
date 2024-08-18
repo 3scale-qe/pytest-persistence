@@ -9,6 +9,12 @@ def test_addoption(pytestconfig):
     assert "load" in options
 
 
+def test_no_persistence():
+    os.system("pytest tests/test_mock.py")
+
+    assert not os.path.exists("tmp")
+
+
 def test_store():
     os.system("pytest --store stored_tests tests/test_mock.py")
     with open("stored_tests", 'rb') as f:
