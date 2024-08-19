@@ -49,3 +49,16 @@ def test_load_error():
 
     stream = os.popen("pytest --load ferko42").read()
     assert "No such file or directory: 'ferko42'" in stream
+
+
+def test_bug(request):
+    request.addfinalizer(lambda: os.remove('stored_tests'))
+    os.system("pytest --store stored_tests tests/mock/")
+    stream = os.popen('ls').read()
+    assert "stored_tests" in stream.split('\n')
+
+    stream = os.popen("pytest --load stored_tests tests/mock").read()
+    assert "tests/mock/test_A.py . " in stream
+    assert "tests/mock/test_B.py . " in stream
+    assert "2 passed" in stream
+
