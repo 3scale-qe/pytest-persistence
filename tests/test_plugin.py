@@ -15,7 +15,8 @@ def test_no_persistence():
     assert not os.path.exists("tmp")
 
 
-def test_store():
+def test_store(request):
+    request.addfinalizer(lambda: os.remove('stored_tests'))
     os.system("pytest --store stored_tests tests/test_mock.py")
     with open("stored_tests", 'rb') as f:
         data = pickle.load(f)
