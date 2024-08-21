@@ -198,6 +198,9 @@ class Plugin:
         def fixtures(finalizers):
             """Mine fixturedefs from stack of finalizers"""
             for fin in finalizers:
+                if hasattr(fin, "func"):
+                    yield fin.func.__self__
+
                 if not getattr(fin, "__closure__", None):
                     continue
                 for cell in fin.__closure__:
