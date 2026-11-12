@@ -1,0 +1,41 @@
+[project]
+name = "pytest-persistence"
+version = "0.1.12"
+description = "Pytest plugin for persistent objects"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Jakub Urban", email = "kubo.urban@gmail.com"}
+]
+maintainers = [
+    {name = "Matej Dujava", email = "mdujava@redhat.com"}
+]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Framework :: Pytest",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "pytest",
+]
+
+[project.urls]
+Homepage = "https://github.com/3scale-qe/pytest-persistence"
+
+[project.entry-points.pytest11]
+persistence = "pytest_persistence.plugin"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pytest_persistence*"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true
+local_partial_types = true
