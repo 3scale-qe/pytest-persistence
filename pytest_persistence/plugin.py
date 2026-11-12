@@ -148,10 +148,9 @@ class Plugin:
             # early return if we are run with --collect-only
             return
 
-        if session.config.getoption("--store"):
+        if file := session.config.getoption("--store"):
             self.emit_dependency_warnings()
 
-        if file := session.config.getoption("--store"):
             if worker := os.getenv("PYTEST_XDIST_WORKER"):
                 self.output_to_file(f"{file}_{worker}")
                 return
